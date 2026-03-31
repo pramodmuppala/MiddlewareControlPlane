@@ -1,0 +1,47 @@
+---
+jboss:
+  become_user: root
+
+  install_home: /opt/products/jboss
+  install_product_version: jboss-eap-8.1
+  install_zip: jboss-eap-8.1.zip
+  install_zip_name: jboss-eap-8.1.zip
+  install_owner: jboss
+  install_group: jboss
+
+  instance_root: /opt/jboss
+  instance_name_prefix: app
+  instance_start_index: 1
+  instance_count: 1
+  destroy_enabled: false
+  instance_subdirs:
+    - ""
+    - bin
+    - configuration
+    - data
+    - deployments
+    - log
+    - tmp
+
+  java_home: /opt/products/jdk/jdk25
+  bind_address: 0.0.0.0
+  management_bind_address: 127.0.0.1
+  health_path: /
+  port_stride: 100
+  base_http_port: 8080
+  base_https_port: 8443
+  base_management_port: 9990
+  base_ajp_port: 8009
+
+  standalone:
+    config_file: standalone.xml
+    validation_config_file: standalone-ansible-validate.xml
+
+  java_opts:
+    heap_min: 1024m
+    heap_max: 2048m
+    metaspace_max: 512m
+    extra: -Dfile.encoding=UTF-8
+
+staging_dir: /opt/temp/config_build/jboss-eap
+startup_log_name: startup-ansible.log

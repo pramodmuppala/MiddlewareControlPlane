@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="520" viewBox="0 0 1000 520">
+  <rect width="1000" height="520" fill="#ffffff"/>
+  <rect x="20" y="20" width="960" height="480" rx="16" ry="16" fill="#f7f7f7" stroke="#d0d0d0"/>
+  <text x="500" y="70" text-anchor="middle" font-size="28" font-family="Arial">Tomcat Autoscaler Architecture</text>
+  <rect x="80" y="120" width="200" height="90" fill="#eaf2ff" stroke="#4a76a8"/>
+  <text x="180" y="160" text-anchor="middle" font-size="20" font-family="Arial">Metrics</text>
+  <text x="180" y="188" text-anchor="middle" font-size="16" font-family="Arial">CPU / Memory / HTTP</text>
+  <rect x="400" y="120" width="200" height="90" fill="#eefbea" stroke="#4a8a4a"/>
+  <text x="500" y="160" text-anchor="middle" font-size="20" font-family="Arial">Autoscaler</text>
+  <text x="500" y="188" text-anchor="middle" font-size="16" font-family="Arial">Rules + optional LLM</text>
+  <rect x="720" y="120" width="200" height="90" fill="#fff5e6" stroke="#a87a2a"/>
+  <text x="820" y="160" text-anchor="middle" font-size="20" font-family="Arial">Ansible</text>
+  <text x="820" y="188" text-anchor="middle" font-size="16" font-family="Arial">Deploy.yml</text>
+  <rect x="250" y="300" width="500" height="110" fill="#f8ecff" stroke="#8a4aa8"/>
+  <text x="500" y="340" text-anchor="middle" font-size="22" font-family="Arial">Tomcat Instances</text>
+  <text x="500" y="372" text-anchor="middle" font-size="16" font-family="Arial">Shared CATALINA_HOME + per-instance CATALINA_BASE</text>
+  <line x1="280" y1="165" x2="400" y2="165" stroke="#555" stroke-width="3"/>
+  <line x1="600" y1="165" x2="720" y2="165" stroke="#555" stroke-width="3"/>
+  <line x1="820" y1="210" x2="750" y2="300" stroke="#555" stroke-width="3"/>
+  <line x1="180" y1="210" x2="250" y2="300" stroke="#555" stroke-width="3"/>
+</svg>

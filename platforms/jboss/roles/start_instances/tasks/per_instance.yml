@@ -1,0 +1,50 @@
+---
+- name: Start and verify {{ instance_name }}
+  vars:
+    instance_home: "{{ jboss.instance_root }}/{{ instance_name }}"
+    instance_number: "{{ instance_name | regex_replace('^' ~ jboss.instance_name_prefix, '') | int }}"
+    instance_offset: "{{ (instance_name | regex_replace('^' ~ jboss.instance_name_prefix, '') | int) - (jboss.instance_start_index | int) }}"
+    instance_http_port: "{{ (jboss.base_http_port | int) + (((instance_name | regex_replace('^' ~ jboss.instance_name_prefix, '') | int) - (jboss.instance_start_index | int)) * (jboss.port_stride | int)) }}"
+    instance_management_port: "{{ (jboss.base_management_port | int) + (((instance_name | regex_replace('^' ~ jboss.instance_name_prefix, '') | int) - (jboss.instance_start_index | int)) * (jboss.port_stride | int)) }}"
+  block:
+    - name: Check whether {{ instance_name }} is already running
+      ansible.builtin.shell: >
+        pgrep -f 'jboss.server.base.dir={{ instance_home }}'
+      args:
+        executable: /bin/bash
+      register: instance_process_check
+      changed_when: false
+      failed_when: false
+
+    - name: Start {{ instance_name }} when not already running
+      ansible.builtin.shell: >
+        nohup "{{ jboss.install_home }}/{{ jboss.install_product_version }}/bin/standalone.sh"
+        -c "{{ jboss.standalone.config_file }}"
+        -Djboss.server.base.dir="{{ instance_home }}"
+        -Djboss.bind.address="{{ jboss.bind_address }}"
+        -Djboss.bind.address.management="{{ jboss.management_bind_address }}"
+        > "{{ instance_home }}/log/{{ startup_log_name }}" 2>&1 &
+      args:
+        executable: /bin/bash
+      environment:
+        JAVA_HOME: "{{ jboss.java_home }}"
+        JBOSS_HOME: "{{ jboss.install_home }}/{{ jboss.install_product_version }}"
+      when: instance_process_check.rc != 0
+
+    - name: Wait for management port on {{ instance_name }}
+      ansible.builtin.wait_for:
+        host: "{{ jboss.management_bind_address }}"
+        port: "{{ instance_management_port }}"
+        delay: 3
+        timeout: 120
+
+    - name: Probe health URL on {{ instance_name }}
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ instance_http_port }}{{ jboss.health_path }}"
+        method: GET
+        status_code: [200, 301, 302, 401, 403]
+        return_content: false
+      register: instance_health
+      retries: 10
+      delay: 3
+      until: instance_health.status in [200, 301, 302, 401, 403]

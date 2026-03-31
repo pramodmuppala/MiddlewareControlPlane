@@ -1,0 +1,6 @@
+---
+- name: Ensure all desired JBoss instances are running
+  ansible.builtin.include_tasks: per_instance.yml
+  loop: "{{ desired_instance_names }}"
+  loop_control:
+    loop_var: instance_name

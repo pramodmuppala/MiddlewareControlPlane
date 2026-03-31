@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='{{ file_encoding | default("UTF-8") }}'?>
+<Server port="{{ server.shutdown_port }}" shutdown="{{ server.shutdown_command | default('SHUTDOWN') }}">
+  <Service name="{{ service_cfg.name | default('Catalina') }}">
+{% for connector in connectors %}
+    <Connector
+      port="{{ connector.port }}"
+      protocol="{{ connector.protocol | default('HTTP/1.1') }}"
+      connectionTimeout="{{ connector.connectionTimeout | default(20000) }}"
+      redirectPort="{{ connector.redirectPort | default(8443) }}" />
+{% endfor %}
+    <Engine name="{{ engine.name | default('Catalina') }}" defaultHost="{{ engine.defaultHost | default('localhost') }}">
+{% for host in tomcat_hosts %}
+      <Host
+        name="{{ host.name }}"
+        appBase="{{ host.appBase | default('webapps') }}"
+        unpackWARs="{{ host.unpackWARs | default(true) | string | lower }}"
+        autoDeploy="{{ host.autoDeploy | default(false) | string | lower }}" />
+{% endfor %}
+    </Engine>
+  </Service>
+</Server>

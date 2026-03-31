@@ -1,0 +1,5 @@
+# One operation per line.
+/socket-binding-group=standard-sockets/socket-binding=ajp:write-attribute(name=port,value={{ instance_ajp_port }})
+/socket-binding-group=standard-sockets/socket-binding=http:write-attribute(name=port,value={{ instance_http_port }})
+/socket-binding-group=standard-sockets/socket-binding=https:write-attribute(name=port,value={{ instance_https_port }})
+/socket-binding-group=standard-sockets/socket-binding=management-http:write-attribute(name=port,value={{ instance_management_port }})

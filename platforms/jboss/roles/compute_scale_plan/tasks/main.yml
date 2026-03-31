@@ -1,0 +1,14 @@
+---
+- name: Initialize desired instance list
+  ansible.builtin.set_fact:
+    desired_instance_names: []
+
+- name: Build desired instance list from requested count
+  ansible.builtin.set_fact:
+    desired_instance_names: "{{ desired_instance_names + [jboss.instance_name_prefix ~ (item | string)] }}"
+  loop: "{{ range((jboss.instance_start_index | int), (jboss.instance_start_index | int) + (jboss.instance_count | int)) | list }}"
+
+- name: Compute scaling plan
+  ansible.builtin.set_fact:
+    missing_instance_names: "{{ desired_instance_names | difference(existing_instance_names | default([])) | sort }}"
+    extra_instance_names: "{{ existing_instance_names | default([]) | difference(desired_instance_names) | sort }}"

@@ -1,0 +1,7 @@
+---
+- name: Configure standalone.xml for each new instance
+  ansible.builtin.include_tasks: per_instance.yml
+  loop: "{{ missing_instance_names }}"
+  loop_control:
+    loop_var: instance_name
+  when: missing_instance_names | length > 0

@@ -1,0 +1,11 @@
+---
+- name: Ensure validation directory exists
+  ansible.builtin.file:
+    path: "{{ validates_base | default('/tmp/tomcat_validate') }}"
+    state: directory
+    mode: "0755"
+
+- name: Validate rendered setenv.sh syntax
+  ansible.builtin.shell: |
+    /bin/sh -n "{{ staging_dir }}/setenv.sh"
+  changed_when: false

@@ -1,0 +1,19 @@
+---
+- name: Render instance runtime environment file for each new instance
+  ansible.builtin.template:
+    src: jboss-instance.env.j2
+    dest: "{{ jboss.instance_root }}/{{ item }}/bin/jboss-instance.env"
+    owner: "{{ jboss.install_owner }}"
+    group: "{{ jboss.install_group }}"
+    mode: "0644"
+  loop: "{{ missing_instance_names }}"
+  vars:
+    instance_name: "{{ item }}"
+    instance_home: "{{ jboss.instance_root }}/{{ item }}"
+    instance_number: "{{ item | regex_replace('^' ~ jboss.instance_name_prefix, '') | int }}"
+    instance_offset: "{{ (item | regex_replace('^' ~ jboss.instance_name_prefix, '') | int) - (jboss.instance_start_index | int) }}"
+    instance_http_port: "{{ (jboss.base_http_port | int) + (((item | regex_replace('^' ~ jboss.instance_name_prefix, '') | int) - (jboss.instance_start_index | int)) * (jboss.port_stride | int)) }}"
+    instance_https_port: "{{ (jboss.base_https_port | int) + (((item | regex_replace('^' ~ jboss.instance_name_prefix, '') | int) - (jboss.instance_start_index | int)) * (jboss.port_stride | int)) }}"
+    instance_management_port: "{{ (jboss.base_management_port | int) + (((item | regex_replace('^' ~ jboss.instance_name_prefix, '') | int) - (jboss.instance_start_index | int)) * (jboss.port_stride | int)) }}"
+    instance_ajp_port: "{{ (jboss.base_ajp_port | int) + (((item | regex_replace('^' ~ jboss.instance_name_prefix, '') | int) - (jboss.instance_start_index | int)) * (jboss.port_stride | int)) }}"
+  when: missing_instance_names | length > 0

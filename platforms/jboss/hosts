@@ -1,0 +1,2 @@
+[JBoss]
+localhost ansible_connection=local

@@ -1,0 +1,9 @@
+---
+- name: Remove extra JBoss instances when destroy is enabled
+  ansible.builtin.include_tasks: per_instance.yml
+  loop: "{{ extra_instance_names }}"
+  loop_control:
+    loop_var: instance_name
+  when:
+    - jboss.destroy_enabled | bool
+    - extra_instance_names | length > 0

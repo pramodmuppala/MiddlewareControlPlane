@@ -1,0 +1,18 @@
+---
+- name: Scale and manage JBoss EAP standalone instances
+  hosts: JBoss
+  gather_facts: false
+  become: true
+  become_user: "{{ jboss.become_user }}"
+  vars_files:
+    - vars/main.yml
+  roles:
+    - install_jboss
+    - discover_instances
+    - compute_scale_plan
+    - create_instances
+    - render_instance_env
+    - render_instance_config
+    - start_instances
+    - remove_extra_instances
+    - summary

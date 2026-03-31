@@ -1,0 +1,191 @@
+---
+- name: Deploy and restart Tomcat instances
+  hosts: Tomcat
+  connection: local
+  become: true
+  gather_facts: false
+
+  vars_files:
+    - vars/main.yml
+
+  tasks:
+    - name: Build effective Tomcat config (supports partial -e tomcat=... overrides)
+      ansible.builtin.set_fact:
+        tomcat_cfg: >-
+          {{
+            {
+              'instance_count': 1,
+              'instance_start_index': 1,
+              'instance_name_prefix': 'app',
+              'port_stride': 100,
+              'destroy_enabled': false,
+              'catalina_base_root': '/opt/tomcat'
+            }
+            | combine((tomcat_defaults | default({})), recursive=True)
+            | combine((tomcat | default({})), recursive=True)
+          }}
+
+    - name: Derive catalina_base_root when not explicitly set
+      ansible.builtin.set_fact:
+        tomcat_cfg: >-
+          {{
+            tomcat_cfg | combine({
+              'catalina_base_root': (
+                tomcat_cfg.catalina_base_root
+                | default(
+                    (
+                      (tomcat_cfg.catalina_base | default('/opt/tomcat/app1'))
+                      | regex_replace('/[^/]+$', '')
+                    ),
+                    true
+                  )
+              )
+            }, recursive=True)
+          }}
+
+    - name: Validate instance count input
+      ansible.builtin.assert:
+        that:
+          - tomcat_cfg.instance_count | int >= 0
+        fail_msg: "tomcat.instance_count must be >= 0"
+
+    - name: Discover existing Tomcat instance directories
+      ansible.builtin.find:
+        paths: "{{ tomcat_cfg.catalina_base_root }}"
+        file_type: directory
+        recurse: false
+        patterns: "{{ tomcat_cfg.instance_name_prefix }}*"
+      register: discovered_instance_dirs
+
+    - name: Build desired and current instance name sets
+      ansible.builtin.set_fact:
+        desired_instance_names: >-
+          {{
+            range(
+              tomcat_cfg.instance_start_index | int,
+              (tomcat_cfg.instance_start_index | int) + (tomcat_cfg.instance_count | int)
+            )
+            | map('string')
+            | map('regex_replace', '^', tomcat_cfg.instance_name_prefix)
+            | list
+          }}
+        current_instance_names: >-
+          {{
+            discovered_instance_dirs.files
+            | map(attribute='path')
+            | map('basename')
+            | select('match', '^' ~ tomcat_cfg.instance_name_prefix ~ '[0-9]+$')
+            | list
+          }}
+
+    - name: Build missing instance name set
+      ansible.builtin.set_fact:
+        missing_instance_names: >-
+          {{
+            desired_instance_names | difference(current_instance_names) | sort
+          }}
+
+    - name: Compute excess instances to destroy
+      ansible.builtin.set_fact:
+        excess_instance_names: "{{ current_instance_names | difference(desired_instance_names) | sort }}"
+
+    - name: Show existing instances left untouched
+      ansible.builtin.debug:
+        msg: >-
+          Existing instances detected ({{ current_instance_names | join(', ') }}) and will not be restarted or redeployed.
+      when: current_instance_names | length > 0
+
+    - name: No new instances need to be created
+      ansible.builtin.debug:
+        msg: "All requested instances already exist. Nothing new to create."
+      when: missing_instance_names | length == 0
+
+    - name: Cleanup skipped because destroy_enabled is false
+      ansible.builtin.debug:
+        msg: >-
+          Extra instances detected ({{ excess_instance_names | join(', ') }}) but not removed because tomcat.destroy_enabled=false.
+      when:
+        - not (tomcat_cfg.destroy_enabled | default(false) | bool)
+        - excess_instance_names | length > 0
+
+    - name: Destroy extra Tomcat instances when desired count decreases
+      ansible.builtin.include_tasks: tasks/destroy_instance.yml
+      when:
+        - tomcat_cfg.destroy_enabled | default(false) | bool
+        - excess_instance_names | length > 0
+      vars:
+        instance_name: "{{ excess_instance_name }}"
+        instance_catalina_base: "{{ tomcat_cfg.catalina_base_root }}/{{ excess_instance_name }}"
+        instance_staging_dir: "{{ staging_root }}/{{ excess_instance_name }}"
+        destroy_tomcat_instance: >-
+          {{
+            tomcat_cfg | combine({
+              'catalina_base': tomcat_cfg.catalina_base_root ~ '/' ~ excess_instance_name
+            }, recursive=True)
+          }}
+      loop: "{{ excess_instance_names }}"
+      loop_control:
+        loop_var: excess_instance_name
+        label: "{{ excess_instance_name }}"
+
+    - name: Run deployment workflow only for missing Tomcat instances
+      ansible.builtin.include_tasks: tasks/deploy_instance.yml
+      vars:
+        instance_name: "{{ missing_instance_name }}"
+        instance_number: "{{ missing_instance_name | regex_replace('^' ~ tomcat_cfg.instance_name_prefix, '') | int }}"
+        instance_catalina_base: "{{ tomcat_cfg.catalina_base_root }}/{{ missing_instance_name }}"
+        instance_shutdown_port: >-
+          {{
+            (tomcat_cfg.server.shutdown_port | int)
+            + (
+                (
+                  (missing_instance_name | regex_replace('^' ~ tomcat_cfg.instance_name_prefix, '') | int)
+                  - (tomcat_cfg.instance_start_index | int)
+                ) * (tomcat_cfg.port_stride | int)
+              )
+          }}
+        instance_http_port: >-
+          {{
+            (tomcat_cfg.connectors[0].port | int)
+            + (
+                (
+                  (missing_instance_name | regex_replace('^' ~ tomcat_cfg.instance_name_prefix, '') | int)
+                  - (tomcat_cfg.instance_start_index | int)
+                ) * (tomcat_cfg.port_stride | int)
+              )
+          }}
+        instance_redirect_port: >-
+          {{
+            (tomcat_cfg.connectors[0].redirectPort | int)
+            + (
+                (
+                  (missing_instance_name | regex_replace('^' ~ tomcat_cfg.instance_name_prefix, '') | int)
+                  - (tomcat_cfg.instance_start_index | int)
+                ) * (tomcat_cfg.port_stride | int)
+              )
+          }}
+        instance_staging_dir: "{{ staging_root }}/{{ missing_instance_name }}"
+        tomcat_instance: >-
+          {{
+            tomcat_cfg | combine({
+              'catalina_base': tomcat_cfg.catalina_base_root ~ '/' ~ missing_instance_name,
+              'health_url': 'http://127.0.0.1:' ~ (instance_http_port | string) ~ '/',
+              'server': (
+                tomcat_cfg.server | combine({
+                  'shutdown_port': instance_shutdown_port
+                }, recursive=True)
+              ),
+              'connectors': [
+                (
+                  tomcat_cfg.connectors[0] | combine({
+                    'port': instance_http_port,
+                    'redirectPort': instance_redirect_port
+                  }, recursive=True)
+                )
+              ]
+            }, recursive=True)
+          }}
+      loop: "{{ missing_instance_names }}"
+      loop_control:
+        loop_var: missing_instance_name
+        label: "{{ missing_instance_name }}"

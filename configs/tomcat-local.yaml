@@ -1,0 +1,37 @@
+platform: tomcat
+dry_run: true
+legacy_vars_file: ../platforms/tomcat/vars/main.yml
+ansible:
+  executable: ansible-playbook
+  inventory: hosts
+  playbook: Deploy.yml
+  working_directory: ../platforms/tomcat
+runtime:
+  instance_root: /opt/tomcat
+  instance_name_prefix: app
+  instance_start_index: 1
+  base_http_port: 8080
+  port_stride: 100
+  health_path: /
+  health_timeout_seconds: 2.0
+scaling:
+  min_instances: 1
+  max_instances: 6
+  scale_up_cpu_percent: 75.0
+  scale_down_cpu_percent: 25.0
+  scale_up_mem_percent: 85.0
+  scale_down_mem_percent: 50.0
+  scale_up_avg_latency_ms: 800.0
+  scale_down_avg_latency_ms: 250.0
+  consecutive_up_required: 3
+  consecutive_down_required: 5
+  cooldown_seconds: 300
+  loop_interval_seconds: 60
+  desired_floor_at_bootstrap: 1
+state:
+  state_file: .state/tomcat-state.json
+  decision_log_file: .state/tomcat-decisions.jsonl
+llm:
+  enabled: false
+  model: gpt-4.1-mini
+legacy_platform_key: tomcat_defaults

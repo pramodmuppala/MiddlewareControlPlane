@@ -1,0 +1,93 @@
+---
+- name: Ensure per-instance staging directory exists
+  ansible.builtin.file:
+    path: "{{ instance_staging_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure Tomcat instance root exists
+  ansible.builtin.file:
+    path: "{{ instance_catalina_base }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure Tomcat instance subdirectories exist
+  ansible.builtin.file:
+    path: "{{ [instance_catalina_base, subdir] | path_join }}"
+    state: directory
+    owner: "{{ tomcat_instance.run_user | default(omit) }}"
+    group: "{{ tomcat_instance.run_group | default(omit) }}"
+    mode: '0755'
+  loop:
+    - bin
+    - conf
+    - logs
+    - temp
+    - webapps
+    - work
+  loop_control:
+    loop_var: subdir
+
+- name: Render setenv.sh for {{ instance_name }}
+  ansible.builtin.include_role:
+    name: create_setenv_script
+  vars:
+    tomcat: "{{ tomcat_instance }}"
+    catalina_base: "{{ instance_catalina_base }}"
+    catalina_home: "{{ tomcat_instance.catalina_home }}"
+    java_home: "{{ tomcat_instance.java_home }}"
+    staging_dir: "{{ instance_staging_dir }}"
+
+- name: Validate setenv.sh for {{ instance_name }}
+  ansible.builtin.include_role:
+    name: validate_setenv_script
+  vars:
+    tomcat: "{{ tomcat_instance }}"
+    catalina_base: "{{ instance_catalina_base }}"
+    catalina_home: "{{ tomcat_instance.catalina_home }}"
+    java_home: "{{ tomcat_instance.java_home }}"
+    staging_dir: "{{ instance_staging_dir }}"
+
+- name: Render and deploy server.xml for {{ instance_name }}
+  ansible.builtin.include_role:
+    name: create_server_xml
+  vars:
+    tomcat: "{{ tomcat_instance }}"
+    catalina_base: "{{ instance_catalina_base }}"
+    catalina_home: "{{ tomcat_instance.catalina_home }}"
+    java_home: "{{ tomcat_instance.java_home }}"
+    staging_dir: "{{ instance_staging_dir }}"
+    server: "{{ tomcat_instance.server }}"
+    connectors: "{{ tomcat_instance.connectors }}"
+    engine: "{{ tomcat_instance.engine }}"
+    tomcat_hosts: "{{ tomcat_instance.hosts }}"
+    service_cfg: "{{ tomcat_instance.service | default({}) }}"
+    file_encoding: "{{ tomcat_instance.file_encoding | default('UTF-8') }}"
+
+- name: Copy config files for {{ instance_name }}
+  ansible.builtin.include_role:
+    name: copy_config_files
+  vars:
+    tomcat: "{{ tomcat_instance }}"
+    catalina_base: "{{ instance_catalina_base }}"
+    catalina_home: "{{ tomcat_instance.catalina_home }}"
+    java_home: "{{ tomcat_instance.java_home }}"
+    staging_dir: "{{ instance_staging_dir }}"
+
+- name: Shutdown {{ instance_name }}
+  ansible.builtin.include_role:
+    name: shutdown
+  vars:
+    tomcat: "{{ tomcat_instance }}"
+    catalina_base: "{{ instance_catalina_base }}"
+    catalina_home: "{{ tomcat_instance.catalina_home }}"
+    java_home: "{{ tomcat_instance.java_home }}"
+
+- name: Startup {{ instance_name }}
+  ansible.builtin.include_role:
+    name: startup
+  vars:
+    tomcat: "{{ tomcat_instance }}"
+    catalina_base: "{{ instance_catalina_base }}"
+    catalina_home: "{{ tomcat_instance.catalina_home }}"
+    java_home: "{{ tomcat_instance.java_home }}"

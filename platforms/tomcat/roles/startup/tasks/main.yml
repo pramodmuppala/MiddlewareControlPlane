@@ -1,0 +1,12 @@
+---
+- name: Startup Tomcat instance
+  ansible.builtin.shell: |
+    "{{ catalina_home }}/bin/catalina.sh" start
+  environment:
+    JAVA_HOME: "{{ java_home }}"
+    CATALINA_HOME: "{{ catalina_home }}"
+    CATALINA_BASE: "{{ catalina_base }}"
+  args:
+    executable: /bin/bash
+  register: tomcat_start_result
+  changed_when: true

@@ -1,0 +1,14 @@
+---
+- name: Copy rendered setenv.sh into instance bin directory
+  ansible.builtin.copy:
+    src: "{{ staging_dir }}/setenv.sh"
+    dest: "{{ catalina_base }}/bin/setenv.sh"
+    remote_src: true
+    mode: "0755"
+
+- name: Copy rendered server.xml into instance conf directory
+  ansible.builtin.copy:
+    src: "{{ staging_dir }}/server.xml"
+    dest: "{{ catalina_base }}/conf/server.xml"
+    remote_src: true
+    mode: "0644"

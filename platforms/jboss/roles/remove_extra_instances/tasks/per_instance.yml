@@ -1,0 +1,60 @@
+---
+- name: Stop and remove {{ instance_name }}
+  vars:
+    instance_home: "{{ jboss.instance_root }}/{{ instance_name }}"
+    instance_management_port: "{{ (jboss.base_management_port | int) + (((instance_name | regex_replace('^' ~ jboss.instance_name_prefix, '') | int) - (jboss.instance_start_index | int)) * (jboss.port_stride | int)) }}"
+  block:
+    - name: Check whether {{ instance_name }} is running
+      ansible.builtin.shell: >
+        pgrep -f 'jboss.server.base.dir={{ instance_home }}'
+      args:
+        executable: /bin/bash
+      register: extra_instance_process_check
+      changed_when: false
+      failed_when: false
+
+    - name: Check whether management port is reachable for {{ instance_name }}
+      ansible.builtin.wait_for:
+        host: "{{ jboss.management_bind_address }}"
+        port: "{{ instance_management_port }}"
+        timeout: 2
+      register: extra_instance_mgmt_check
+      ignore_errors: true
+      when: extra_instance_process_check.rc == 0
+
+    - name: Shutdown {{ instance_name }} gracefully through the CLI when possible
+      ansible.builtin.shell: >
+        "{{ jboss.install_home }}/{{ jboss.install_product_version }}/bin/jboss-cli.sh"
+        --connect
+        --controller={{ jboss.management_bind_address }}:{{ instance_management_port }}
+        --command="shutdown"
+      args:
+        executable: /bin/bash
+      environment:
+        JAVA_HOME: "{{ jboss.java_home }}"
+        JBOSS_HOME: "{{ jboss.install_home }}/{{ jboss.install_product_version }}"
+      register: extra_shutdown_result
+      changed_when: true
+      failed_when: false
+      when:
+        - extra_instance_process_check.rc == 0
+        - extra_instance_mgmt_check is succeeded
+
+    - name: Kill {{ instance_name }} process if it is still running
+      ansible.builtin.shell: >
+        pkill -f 'jboss.server.base.dir={{ instance_home }}' || true
+      args:
+        executable: /bin/bash
+      changed_when: extra_instance_process_check.rc == 0
+      failed_when: false
+      when: extra_instance_process_check.rc == 0
+
+    - name: Pause briefly before removing {{ instance_name }} files
+      ansible.builtin.pause:
+        seconds: 5
+      when: extra_instance_process_check.rc == 0
+
+    - name: Remove instance directory for {{ instance_name }}
+      ansible.builtin.file:
+        path: "{{ instance_home }}"
+        state: absent

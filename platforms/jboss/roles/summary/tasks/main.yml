@@ -1,0 +1,9 @@
+---
+- name: Show scale plan summary
+  ansible.builtin.debug:
+    msg:
+      existing_instances: "{{ existing_instance_names | default([]) }}"
+      desired_instances: "{{ desired_instance_names | default([]) }}"
+      created_instances: "{{ missing_instance_names | default([]) }}"
+      removed_instances: "{{ extra_instance_names if (jboss.destroy_enabled | bool) else [] }}"
+      destroy_enabled: "{{ jboss.destroy_enabled | bool }}"

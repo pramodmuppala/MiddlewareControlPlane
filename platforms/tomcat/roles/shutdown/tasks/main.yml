@@ -1,0 +1,13 @@
+---
+- name: Shutdown Tomcat instance
+  ansible.builtin.shell: |
+    "{{ catalina_home }}/bin/catalina.sh" stop || true
+  environment:
+    JAVA_HOME: "{{ java_home }}"
+    CATALINA_HOME: "{{ catalina_home }}"
+    CATALINA_BASE: "{{ catalina_base }}"
+  args:
+    executable: /bin/bash
+  register: tomcat_stop_result
+  changed_when: false
+  failed_when: false

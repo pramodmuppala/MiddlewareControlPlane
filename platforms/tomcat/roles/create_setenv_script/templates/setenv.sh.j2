@@ -1,0 +1,7 @@
+#!/bin/sh
+export JAVA_HOME="{{ java_home }}"
+export CATALINA_HOME="{{ catalina_home }}"
+export CATALINA_BASE="{{ catalina_base }}"
+export CATALINA_PID="{{ catalina_base }}/temp/catalina.pid"
+export JAVA_OPTS="${JAVA_OPTS:-} -Dfile.encoding={{ tomcat.file_encoding | default('UTF-8') }}"
+export CATALINA_OPTS="${CATALINA_OPTS:-} {{ tomcat.catalina_opts | default('') }}"

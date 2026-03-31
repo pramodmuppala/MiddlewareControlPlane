@@ -1,0 +1,67 @@
+---
+- name: Prepare standalone.xml and port bindings for {{ instance_name }}
+  vars:
+    instance_home: "{{ jboss.instance_root }}/{{ instance_name }}"
+    instance_number: "{{ instance_name | regex_replace('^' ~ jboss.instance_name_prefix, '') | int }}"
+    instance_offset: "{{ (instance_name | regex_replace('^' ~ jboss.instance_name_prefix, '') | int) - (jboss.instance_start_index | int) }}"
+    instance_http_port: "{{ (jboss.base_http_port | int) + (((instance_name | regex_replace('^' ~ jboss.instance_name_prefix, '') | int) - (jboss.instance_start_index | int)) * (jboss.port_stride | int)) }}"
+    instance_https_port: "{{ (jboss.base_https_port | int) + (((instance_name | regex_replace('^' ~ jboss.instance_name_prefix, '') | int) - (jboss.instance_start_index | int)) * (jboss.port_stride | int)) }}"
+    instance_management_port: "{{ (jboss.base_management_port | int) + (((instance_name | regex_replace('^' ~ jboss.instance_name_prefix, '') | int) - (jboss.instance_start_index | int)) * (jboss.port_stride | int)) }}"
+    instance_ajp_port: "{{ (jboss.base_ajp_port | int) + (((instance_name | regex_replace('^' ~ jboss.instance_name_prefix, '') | int) - (jboss.instance_start_index | int)) * (jboss.port_stride | int)) }}"
+  block:
+    - name: Seed standalone.xml from the product default for {{ instance_name }}
+      ansible.builtin.copy:
+        src: "{{ jboss.install_home }}/{{ jboss.install_product_version }}/standalone/configuration/{{ jboss.standalone.config_file }}"
+        dest: "{{ instance_home }}/configuration/{{ jboss.standalone.config_file }}"
+        remote_src: true
+        owner: "{{ jboss.install_owner }}"
+        group: "{{ jboss.install_group }}"
+        mode: "0644"
+
+    - name: Copy default realm property files for {{ instance_name }}
+      ansible.builtin.copy:
+        src: "{{ jboss.install_home }}/{{ jboss.install_product_version }}/standalone/configuration/{{ item }}"
+        dest: "{{ instance_home }}/configuration/{{ item }}"
+        remote_src: true
+        owner: "{{ jboss.install_owner }}"
+        group: "{{ jboss.install_group }}"
+        mode: "0644"
+      loop:
+        - mgmt-users.properties
+        - mgmt-groups.properties
+        - application-users.properties
+        - application-roles.properties
+
+    - name: Render offline CLI batch for {{ instance_name }}
+      ansible.builtin.template:
+        src: offline-config.cli.j2
+        dest: "{{ staging_dir }}/{{ instance_name }}-offline-config.cli"
+        owner: "{{ jboss.install_owner }}"
+        group: "{{ jboss.install_group }}"
+        mode: "0644"
+
+    - name: Apply offline CLI changes to {{ instance_name }} standalone.xml
+      ansible.builtin.shell: >
+        "{{ jboss.install_home }}/{{ jboss.install_product_version }}/bin/jboss-cli.sh"
+        --echo-command
+        --commands="embed-server --server-config={{ jboss.standalone.config_file }},run-batch --file={{ staging_dir }}/{{ instance_name }}-offline-config.cli,stop-embedded-server"
+      args:
+        executable: /bin/bash
+      environment:
+        JAVA_HOME: "{{ jboss.java_home }}"
+        JBOSS_HOME: "{{ jboss.install_home }}/{{ jboss.install_product_version }}"
+        JAVA_OPTS: "-Djboss.server.base.dir={{ instance_home }}"
+      changed_when: true
+
+    - name: Validate {{ instance_name }} standalone.xml with embedded server
+      ansible.builtin.shell: >
+        "{{ jboss.install_home }}/{{ jboss.install_product_version }}/bin/jboss-cli.sh"
+        --echo-command
+        --commands="embed-server --server-config={{ jboss.standalone.config_file }},:read-attribute(name=server-state),stop-embedded-server"
+      args:
+        executable: /bin/bash
+      environment:
+        JAVA_HOME: "{{ jboss.java_home }}"
+        JBOSS_HOME: "{{ jboss.install_home }}/{{ jboss.install_product_version }}"
+        JAVA_OPTS: "-Djboss.server.base.dir={{ instance_home }}"
+      changed_when: false

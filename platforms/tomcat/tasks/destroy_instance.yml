@@ -1,0 +1,42 @@
+---
+- name: Shutdown {{ instance_name }} before removal
+  ansible.builtin.include_role:
+    name: shutdown
+  vars:
+    tomcat: "{{ destroy_tomcat_instance }}"
+    catalina_base: "{{ instance_catalina_base }}"
+    catalina_home: "{{ destroy_tomcat_instance.catalina_home }}"
+    java_home: "{{ destroy_tomcat_instance.java_home }}"
+
+- name: Wait briefly after shutdown
+  ansible.builtin.pause:
+    seconds: 5
+
+- name: Check whether Tomcat process for {{ instance_name }} is still running
+  ansible.builtin.shell: |
+    pgrep -f "{{ instance_catalina_base }}" || true
+  register: destroy_tomcat_pids
+  changed_when: false
+  failed_when: false
+
+- name: Force kill Tomcat process for {{ instance_name }} if still running
+  ansible.builtin.shell: |
+    pkill -9 -f "{{ instance_catalina_base }}" || true
+  when: destroy_tomcat_pids.stdout != ""
+  changed_when: destroy_tomcat_pids.stdout != ""
+  failed_when: false
+
+- name: Wait briefly after force kill
+  ansible.builtin.pause:
+    seconds: 2
+  when: destroy_tomcat_pids.stdout != ""
+
+- name: Remove Tomcat instance directory {{ instance_name }}
+  ansible.builtin.file:
+    path: "{{ instance_catalina_base }}"
+    state: absent
+
+- name: Remove staging directory for {{ instance_name }}
+  ansible.builtin.file:
+    path: "{{ instance_staging_dir }}"
+    state: absent

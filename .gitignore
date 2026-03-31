@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.DS_Store
+*.log
+*.zip
+.state/
+docs/evidence/*
+!docs/evidence/.gitkeep
+!docs/evidence/README.md
+!.state/.gitkeep

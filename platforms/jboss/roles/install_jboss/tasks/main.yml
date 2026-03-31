@@ -1,0 +1,25 @@
+---
+- name: Ensure JBoss install directory exists
+  ansible.builtin.file:
+    path: "{{ jboss.install_home }}"
+    state: directory
+    owner: "{{ jboss.install_owner }}"
+    group: "{{ jboss.install_group }}"
+    mode: "0755"
+
+- name: Copy JBoss ZIP to target server
+  ansible.builtin.copy:
+    src: "{{ jboss.install_zip }}"
+    dest: "/tmp/{{ jboss.install_zip_name }}"
+    owner: "{{ jboss.install_owner }}"
+    group: "{{ jboss.install_group }}"
+    mode: "0644"
+
+- name: Extract JBoss ZIP on target server when not already installed
+  ansible.builtin.unarchive:
+    src: "/tmp/{{ jboss.install_zip_name }}"
+    dest: "{{ jboss.install_home }}"
+    remote_src: true
+    owner: "{{ jboss.install_owner }}"
+    group: "{{ jboss.install_group }}"
+    creates: "{{ jboss.install_home }}/{{ jboss.install_product_version }}/bin/standalone.sh"

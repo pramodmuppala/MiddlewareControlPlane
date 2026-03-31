@@ -1,0 +1,16 @@
+[Unit]
+Description=Middleware Control Plane
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/middleware-control-plane
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/middleware-control-plane/.venv/bin/python /opt/middleware-control-plane/mcp.py --config /opt/middleware-control-plane/configs/jboss-local.yaml
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

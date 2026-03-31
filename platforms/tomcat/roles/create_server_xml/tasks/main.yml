@@ -1,0 +1,6 @@
+---
+- name: Render server.xml into staging directory
+  ansible.builtin.template:
+    src: server.xml.j2
+    dest: "{{ staging_dir }}/server.xml"
+    mode: "0644"

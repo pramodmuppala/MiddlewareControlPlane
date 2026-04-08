@@ -1,0 +1,21 @@
+---
+- name: Start JBoss EAP using install binaries and instance base dir
+  ansible.builtin.shell: >
+    nohup "{{ jboss.install_home }}/{{ jboss.install_product_version }}/bin/standalone.sh"
+    -c "{{ jboss.standalone.config_file }}"
+    -Djboss.server.base.dir="{{ jboss.instance_home }}"
+    -Djboss.bind.address="{{ jboss.standalone.bind_address }}"
+    -Djboss.bind.address.management="{{ jboss.standalone.management_bind_address }}"
+    > "{{ jboss.instance_home }}/log/startup-ansible.log" 2>&1 &
+  args:
+    executable: /bin/bash
+  environment:
+    JAVA_HOME: "{{ jboss.java_home }}"
+    JBOSS_HOME: "{{ jboss.install_home }}/{{ jboss.install_product_version }}"
+
+- name: Wait for management port to open
+  ansible.builtin.wait_for:
+    host: "{{ jboss.management.host }}"
+    port: "{{ jboss.management.port }}"
+    delay: 5
+    timeout: 120

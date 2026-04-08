@@ -1,0 +1,44 @@
+---
+jboss:
+  install_home: /opt/products/jboss
+  instance_home: /opt/jboss
+  install_product_version: jboss-eap-8.1
+  install_zip: jboss-eap-8.1.zip
+  install_zip_name: jboss-eap-8.1.zip
+  install_owner: parallels
+  install_group: parallels
+  java_home: "/opt/products/jdk/jdk25"
+
+  standalone:
+    config_file: "standalone.xml"
+    validation_config_file: "standalone-ansible-validate.xml"
+    bind_address: "0.0.0.0"
+    management_bind_address: "127.0.0.1"
+
+  java_opts:
+    heap_min: "1024m"
+    heap_max: "2048m"
+    metaspace_max: "512m"
+    extra: "-Dfile.encoding=UTF-8"
+
+  management:
+    protocol: "remote+http"
+    host: "127.0.0.1"
+    port: 9990
+    username: ""
+    password: ""
+
+  ports:
+    http: 8080
+    https: 8443
+
+  logging:
+    root_level: "INFO"
+
+  healthcheck:
+    enabled: true
+    url: "http://127.0.0.1:8080/"
+
+staging_dir: "/opt/temp/config_build/jboss-eap"
+instance_env_file: "{{ jboss.instance_home }}/bin/jboss-instance.env"
+startup_log: "{{ jboss.instance_home }}/log/startup-ansible.log"

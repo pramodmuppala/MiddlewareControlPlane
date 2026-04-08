@@ -1,0 +1,30 @@
+---
+- name: Backup live instance env file if present
+  ansible.builtin.copy:
+    src: "{{ instance_env_file }}"
+    dest: "{{ instance_env_file }}.bak"
+    remote_src: true
+    mode: "0644"
+  ignore_errors: true
+
+- name: Backup live instance standalone.xml if present
+  ansible.builtin.copy:
+    src: "{{ jboss.instance_home }}/configuration/{{ jboss.standalone.config_file }}"
+    dest: "{{ jboss.instance_home }}/configuration/{{ jboss.standalone.config_file }}.bak"
+    remote_src: true
+    mode: "0644"
+  ignore_errors: true
+
+- name: Deploy instance runtime environment file
+  ansible.builtin.copy:
+    src: "{{ staging_dir }}/jboss-instance.env"
+    dest: "{{ instance_env_file }}"
+    remote_src: true
+    mode: "0644"
+
+- name: Deploy standalone.xml to instance configuration
+  ansible.builtin.copy:
+    src: "{{ staging_dir }}/{{ jboss.standalone.config_file }}"
+    dest: "{{ jboss.instance_home }}/configuration/{{ jboss.standalone.config_file }}"
+    remote_src: true
+    mode: "0644"

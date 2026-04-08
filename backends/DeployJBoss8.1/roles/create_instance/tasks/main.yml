@@ -1,0 +1,20 @@
+---
+- name: Ensure staging directory exists
+  ansible.builtin.file:
+    path: "{{ staging_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Ensure JBoss instance directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ jboss.instance_home }}"
+    - "{{ jboss.instance_home }}/bin"
+    - "{{ jboss.instance_home }}/configuration"
+    - "{{ jboss.instance_home }}/data"
+    - "{{ jboss.instance_home }}/deployments"
+    - "{{ jboss.instance_home }}/log"
+    - "{{ jboss.instance_home }}/tmp"

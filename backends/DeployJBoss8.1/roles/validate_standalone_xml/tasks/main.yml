@@ -1,0 +1,29 @@
+---
+- name: Validate staged standalone.xml is well-formed XML
+  ansible.builtin.shell: >
+    xmllint --noout "{{ staging_dir }}/{{ jboss.standalone.config_file }}"
+  args:
+    executable: /bin/bash
+  register: xmllint_result
+  changed_when: false
+
+- name: Copy staged standalone.xml to instance validation config
+  ansible.builtin.copy:
+    src: "{{ staging_dir }}/{{ jboss.standalone.config_file }}"
+    dest: "{{ jboss.instance_home }}/configuration/{{ jboss.standalone.validation_config_file }}"
+    remote_src: true
+    mode: "0644"
+
+- name: Validate staged standalone.xml by booting embedded server against instance base dir
+  ansible.builtin.shell: >
+    "{{ jboss.install_home }}/{{ jboss.install_product_version }}/bin/jboss-cli.sh"
+    --echo-command
+    --commands="embed-server --server-config={{ jboss.standalone.validation_config_file }},:read-attribute(name=server-state),stop-embedded-server"
+  args:
+    executable: /bin/bash
+  environment:
+    JAVA_HOME: "{{ jboss.java_home }}"
+    JBOSS_HOME: "{{ jboss.install_home }}/{{ jboss.install_product_version }}"
+    JAVA_OPTS: "-Djboss.server.base.dir={{ jboss.instance_home }}"
+  register: embedded_validation
+  changed_when: false

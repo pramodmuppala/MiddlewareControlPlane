@@ -1,0 +1,47 @@
+---
+- name: Check whether JBoss instance process is running
+  ansible.builtin.shell: >
+    pgrep -f 'jboss.server.base.dir={{ jboss.instance_home }}|org.jboss.as.standalone'
+  args:
+    executable: /bin/bash
+  register: jboss_process_check
+  changed_when: false
+  failed_when: false
+
+- name: Check whether management port is listening
+  ansible.builtin.wait_for:
+    host: "{{ jboss.management.host }}"
+    port: "{{ jboss.management.port }}"
+    timeout: 2
+  register: jboss_mgmt_check
+  ignore_errors: true
+  when: jboss_process_check.rc == 0
+
+- name: Shutdown JBoss EAP via CLI from install bin
+  ansible.builtin.shell: >
+    "{{ jboss.install_home }}/{{ jboss.install_product_version }}/bin/jboss-cli.sh"
+    --connect
+    --controller={{ jboss.management.host }}:{{ jboss.management.port }}
+    --command="shutdown"
+  args:
+    executable: /bin/bash
+  environment:
+    JAVA_HOME: "{{ jboss.java_home }}"
+    JBOSS_HOME: "{{ jboss.install_home }}/{{ jboss.install_product_version }}"
+  register: shutdown_result
+  changed_when: true
+  when:
+    - jboss_process_check.rc == 0
+    - jboss_mgmt_check is succeeded
+
+- name: Skip shutdown when JBoss is not running
+  ansible.builtin.debug:
+    msg: "JBoss instance is not running. Skipping shutdown."
+  when: jboss_process_check.rc != 0
+
+- name: Skip CLI shutdown when process exists but management port is unavailable
+  ansible.builtin.debug:
+    msg: "JBoss process exists, but management port {{ jboss.management.host }}:{{ jboss.management.port }} is not reachable. Skipping CLI shutdown."
+  when:
+    - jboss_process_check.rc == 0
+    - jboss_mgmt_check is failed

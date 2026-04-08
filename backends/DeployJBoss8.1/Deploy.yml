@@ -1,0 +1,21 @@
+---
+- name: Deploy JBoss EAP
+  hosts: JBoss
+  connection: local
+  become: yes
+  become_user: parallels
+
+  vars_files:
+    - vars/main.yml
+
+  roles:
+    - install_jboss
+    - create_instance
+    - create_instance_env
+    - stage_standalone_xml
+    - offline_configure_standalone
+    - validate_standalone_xml
+    - copy_config_files
+    - shutdown
+    - startup
+    - healthcheck

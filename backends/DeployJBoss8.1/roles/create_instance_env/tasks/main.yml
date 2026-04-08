@@ -1,0 +1,11 @@
+---
+- name: Render instance runtime environment file to staging
+  ansible.builtin.template:
+    src: jboss-instance.env.j2
+    dest: "{{ staging_dir }}/jboss-instance.env"
+    mode: "0644"
+
+- name: Validate instance runtime environment shell syntax
+  ansible.builtin.command:
+    cmd: "bash -n {{ staging_dir }}/jboss-instance.env"
+  changed_when: false

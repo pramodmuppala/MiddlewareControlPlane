@@ -1,0 +1,21 @@
+---
+- name: Wait for management port to open
+  ansible.builtin.wait_for:
+    host: "{{ jboss.management.host }}"
+    port: "{{ jboss.management.port }}"
+    delay: 5
+    timeout: 120
+    
+- name: Check server state
+  ansible.builtin.shell: >
+    "{{ jboss.install_home }}/{{ jboss.install_product_version }}/bin/jboss-cli.sh"
+    --connect
+    --controller={{ jboss.management.host }}:{{ jboss.management.port }}
+    --command=":read-attribute(name=server-state)"
+  args:
+    executable: /bin/bash
+  environment:
+    JAVA_HOME: "{{ jboss.java_home }}"
+    JBOSS_HOME: "{{ jboss.install_home }}/{{ jboss.install_product_version }}"
+  register: server_state
+  changed_when: false

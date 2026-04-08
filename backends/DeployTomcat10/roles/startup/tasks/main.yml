@@ -1,7 +1,8 @@
 ---
 - name: startup tomcat instance
-  shell: "{{ tomcat.catalina_base }}/bin/startup.sh"
-  args:
-    chdir: "{{ tomcat.catalina_base }}"
+  shell: "{{ tomcat.catalina_home }}/bin/startup.sh"
+  environment:
+    CATALINA_HOME: "{{ tomcat.catalina_home }}"
+    CATALINA_BASE: "{{ tomcat.catalina_base }}"
   register: startup_result
   ignore_errors: true

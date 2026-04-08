@@ -1,7 +1,8 @@
 ---
 - name: shutdown tomcat instance
-  shell: "{{ tomcat.catalina_base }}/bin/shutdown.sh"
-  args:
-    chdir: "{{ tomcat.catalina_base }}"
+  shell: "{{ tomcat.catalina_home }}/bin/shutdown.sh"
+  environment:
+    CATALINA_HOME: "{{ tomcat.catalina_home }}"
+    CATALINA_BASE: "{{ tomcat.catalina_base }}"
   register: shutdown_result
   ignore_errors: true

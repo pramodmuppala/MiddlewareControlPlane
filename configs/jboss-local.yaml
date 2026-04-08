@@ -3,9 +3,9 @@ dry_run: true
 legacy_vars_file: ../platforms/jboss/vars/main.yml
 ansible:
   executable: ansible-playbook
-  inventory: hosts
-  playbook: Deploy.yml
-  working_directory: ../platforms/jboss
+  inventory: backends/DeployJBoss8.1/hosts
+  playbook: backends/DeployJBoss8.1/Deploy.yml
+  working_directory: .
 runtime:
   instance_root: /opt/jboss
   instance_name_prefix: app

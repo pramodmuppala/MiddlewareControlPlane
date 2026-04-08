@@ -3,9 +3,9 @@ dry_run: true
 legacy_vars_file: ../platforms/tomcat/vars/main.yml
 ansible:
   executable: ansible-playbook
-  inventory: hosts
-  playbook: Deploy.yml
-  working_directory: ../platforms/tomcat
+  inventory: backends/DeployTomcat10/hosts
+  playbook: backends/DeployTomcat10/Deploy.yml
+  working_directory: .
 runtime:
   instance_root: /opt/tomcat
   instance_name_prefix: app

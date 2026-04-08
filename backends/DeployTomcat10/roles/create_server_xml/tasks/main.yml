@@ -1,0 +1,53 @@
+# Render template to staging
+- name: Render server.xml to staging directory
+  become: yes
+  ansible.builtin.template:
+    src: server.xml.j2
+    dest: "{{ staging_dir }}/server.xml"
+    mode: '0644'
+  register: staged_serverxml
+
+# Backup existing server.xml (only if it exists)
+- name: Backup current server.xml
+  become: yes
+  ansible.builtin.copy:
+    src: "{{ tomcat.catalina_base }}/conf/server.xml"
+    dest: "{{ tomcat.catalina_base }}/conf/server.xml.bak"
+    remote_src: yes
+  ignore_errors: yes
+
+# Validate XML syntax using xmllint
+- name: Validate staged server.xml with xmllint
+  become: yes
+  ansible.builtin.command: >
+    xmllint --noout {{ staging_dir }}/server.xml
+  register: xmllint_result
+  changed_when: false
+  failed_when: xmllint_result.rc != 0
+
+# Deploy only if XML is valid
+- name: Deploy validated server.xml to Tomcat conf
+  become: yes
+  ansible.builtin.copy:
+    src: "{{ staging_dir }}/server.xml"
+    dest: "{{ tomcat.catalina_base }}/conf/server.xml"
+    remote_src: yes
+    mode: '0644'
+  when:
+    - staged_serverxml.changed
+    - xmllint_result.rc == 0
+
+# Validate configuration
+- name: Validate Tomcat server.xml
+  become: yes
+  ansible.builtin.command: >
+    {{ tomcat.catalina_home }}/bin/catalina.sh configtest
+  environment:
+    CATALINA_BASE: "{{ tomcat.catalina_base }}"
+    CATALINA_HOME: "{{ tomcat.catalina_home }}"
+    JAVA_HOME: "{{ tomcat.java_home }}"
+  register: tomcat_configtest
+  changed_when: false
+  failed_when:
+    - tomcat_configtest.rc != 0
+    - "'Server configuration file is valid' not in tomcat_configtest.stdout"

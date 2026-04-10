@@ -1,0 +1,13 @@
+---
+- name: Shutdown extra Tomcat instance {{ tomcat_instance.name }}
+  shell: "{{ tomcat_instance.catalina_home }}/bin/shutdown.sh"
+  environment:
+    CATALINA_HOME: "{{ tomcat_instance.catalina_home }}"
+    CATALINA_BASE: "{{ tomcat_instance.path }}"
+  register: shutdown_extra_result
+  ignore_errors: true
+
+- name: Remove extra Tomcat instance directory {{ tomcat_instance.name }}
+  file:
+    path: "{{ tomcat_instance.path }}"
+    state: absent

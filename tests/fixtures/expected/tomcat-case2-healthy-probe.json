@@ -1,0 +1,8 @@
+{
+  "case": "tomcat healthy probe path",
+  "platform": "tomcat",
+  "expected_healthy_count": 1,
+  "expected_action": "hold",
+  "expected_target": 1,
+  "expected_policy_source": "rules"
+}

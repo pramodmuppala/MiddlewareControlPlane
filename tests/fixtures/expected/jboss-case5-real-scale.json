@@ -1,0 +1,5 @@
+{
+  "case": "jboss real scale request to 2",
+  "platform": "jboss",
+  "expected_return_code": 0
+}

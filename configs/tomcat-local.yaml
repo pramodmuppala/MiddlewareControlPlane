@@ -12,7 +12,7 @@ runtime:
   instance_start_index: 1
   base_http_port: 8080
   port_stride: 100
-  health_path: /
+  health_path: /test
   health_timeout_seconds: 2.0
 scaling:
   min_instances: 1
@@ -32,6 +32,6 @@ state:
   state_file: .state/tomcat-state.json
   decision_log_file: .state/tomcat-decisions.jsonl
 llm:
-  enabled: false
-  model: gpt-4.1-mini
+  enabled: true
+  model: gemini-2.5-flash
 legacy_platform_key: tomcat_defaults

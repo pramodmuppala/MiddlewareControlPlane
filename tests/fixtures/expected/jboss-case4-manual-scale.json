@@ -1,0 +1,8 @@
+{
+  "case": "jboss manual scale request to 2",
+  "platform": "jboss",
+  "expected_action": "hold",
+  "expected_target": 2,
+  "expected_policy_source": "api_manual",
+  "expected_dry_run": true
+}

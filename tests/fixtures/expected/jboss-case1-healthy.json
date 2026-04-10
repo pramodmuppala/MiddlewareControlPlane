@@ -1,0 +1,8 @@
+{
+  "case": "jboss healthy steady state",
+  "platform": "jboss",
+  "expected_healthy_count": 2,
+  "expected_action": "hold",
+  "expected_target": 2,
+  "expected_policy_source": "rules"
+}

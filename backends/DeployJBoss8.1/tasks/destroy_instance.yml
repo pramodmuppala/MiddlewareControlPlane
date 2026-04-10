@@ -1,0 +1,39 @@
+---
+- name: Attempt graceful shutdown of extra JBoss instance {{ jboss_instance.name }}
+  shell: >
+    "{{ jboss_instance.install_home }}/{{ jboss_instance.install_product_version }}/bin/jboss-cli.sh"
+    --connect
+    --controller={{ jboss_instance.management_host }}:{{ jboss_instance.management_port }}
+    {% if jboss_instance.management_username | default('') | length > 0 %}
+    --user={{ jboss_instance.management_username }}
+    --password={{ jboss_instance.management_password }}
+    {% endif %}
+    --command="shutdown"
+  args:
+    executable: /bin/bash
+  register: jboss_cli_shutdown
+  ignore_errors: true
+
+- name: Find running JBoss process for extra instance {{ jboss_instance.name }}
+  shell: >
+    pgrep -f "jboss.server.base.dir={{ jboss_instance.path }}"
+  args:
+    executable: /bin/bash
+  register: jboss_pid_lookup
+  changed_when: false
+  failed_when: false
+
+- name: Force kill extra JBoss instance {{ jboss_instance.name }} if still running
+  shell: >
+    kill -9 {{ jboss_pid_lookup.stdout_lines | join(' ') }}
+  args:
+    executable: /bin/bash
+  when:
+    - jboss_pid_lookup.stdout_lines is defined
+    - jboss_pid_lookup.stdout_lines | length > 0
+  ignore_errors: true
+
+- name: Remove extra JBoss instance directory {{ jboss_instance.name }}
+  file:
+    path: "{{ jboss_instance.path }}"
+    state: absent

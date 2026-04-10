@@ -1,0 +1,8 @@
+{
+  "case": "jboss stopped runtime with instance dirs present",
+  "platform": "jboss",
+  "expected_current_count": 2,
+  "expected_healthy_count": 0,
+  "expected_behavior": "hold_or_no_scale",
+  "expected_policy_source": "rules"
+}

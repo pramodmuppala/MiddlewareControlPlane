@@ -1,0 +1,6 @@
+{
+  "case": "tomcat bootstrap to minimum instance",
+  "platform": "tomcat",
+  "expected_action": "scale_up",
+  "expected_target": 1
+}

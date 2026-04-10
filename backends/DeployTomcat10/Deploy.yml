@@ -1,18 +1,137 @@
 ---
-- name: shutdown tomcat instance
+- name: Deploy and restart Tomcat instances
   hosts: Tomcat
-  connection: local
   become: yes
-  gather_facts: no
+  gather_facts: false
 
   vars_files:
     - vars/main.yml
-  
-  roles:
-    - create_setenv_script
-    - validate_setenv_script
-    - create_server_xml
-    - validate_server_xml
-    - copy_config_files
-    - shutdown
-    - startup  
+
+  pre_tasks:
+    - name: Build effective Tomcat config
+      set_fact:
+        tomcat_effective: "{{ tomcat_defaults | default({}) | combine(tomcat | default({}), recursive=True) }}"
+
+    - name: Set fallback when only tomcat is defined
+      set_fact:
+        tomcat_effective: "{{ tomcat | default(tomcat_effective) }}"
+      when: tomcat_effective | length == 0
+
+    - name: Ensure required Tomcat keys exist
+      assert:
+        that:
+          - tomcat_effective.catalina_home is defined
+          - tomcat_effective.catalina_base_root is defined
+          - tomcat_effective.instance_name_prefix is defined
+          - tomcat_effective.instance_count is defined
+          - tomcat_effective.base_port is defined
+          - tomcat_effective.port_step is defined
+          - tomcat_effective.java_home is defined
+        fail_msg: "Tomcat config is missing one or more required keys."
+
+    - name: Build Tomcat instance list
+      set_fact:
+        tomcat_instance_ids: "{{ range(1, (tomcat_effective.instance_count | int) + 1) | list }}"
+
+    - name: Ensure staging directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ staging_dir }}"
+        - "{{ staging_dir }}/backup"
+
+    - name: Show effective Tomcat config
+      debug:
+        msg:
+          - "instance_count={{ tomcat_effective.instance_count }}"
+          - "catalina_home={{ tomcat_effective.catalina_home }}"
+          - "catalina_base_root={{ tomcat_effective.catalina_base_root }}"
+          - "instance_name_prefix={{ tomcat_effective.instance_name_prefix }}"
+          - "base_port={{ tomcat_effective.base_port }}"
+          - "port_step={{ tomcat_effective.port_step }}"
+          - "java_home={{ tomcat_effective.java_home }}"
+
+  tasks:
+    - name: Prepare and deploy each Tomcat instance
+      include_tasks: tasks/deploy_instance.yml
+      loop: "{{ tomcat_instance_ids }}"
+      loop_control:
+        loop_var: instance_id
+        label: "{{ tomcat_effective.instance_name_prefix }}{{ instance_id }}"
+      vars:
+        tomcat_instance:
+          id: "{{ instance_id }}"
+          name: "{{ tomcat_effective.instance_name_prefix }}{{ instance_id }}"
+          catalina_home: "{{ tomcat_effective.catalina_home }}"
+          catalina_base: "{{ tomcat_effective.catalina_base_root }}/{{ tomcat_effective.instance_name_prefix }}{{ instance_id }}"
+          http_port: "{{ (tomcat_effective.base_port | int) + ((instance_id | int) - 1) * (tomcat_effective.port_step | int) }}"
+          shutdown_port: "{{ (tomcat_effective.server.shutdown_port | int) + ((instance_id | int) - 1) * (tomcat_effective.port_step | int) }}"
+          redirect_port: >-
+            {{
+              (
+                tomcat_effective.connectors[0].redirectPort
+                | default(8443)
+                | int
+              ) + ((instance_id | int) - 1) * (tomcat_effective.port_step | int)
+            }}
+          java_home: "{{ tomcat_effective.java_home }}"
+          catalina_opts: "{{ tomcat_effective.catalina_opts | default('') }}"
+          file_encoding: "{{ tomcat_effective.file_encoding | default('UTF-8') }}"
+          shutdown_command: "{{ tomcat_effective.server.shutdown_command | default('SHUTDOWN') }}"
+          service_name: "{{ tomcat_effective.service.name | default('Catalina') }}"
+          engine_name: "{{ tomcat_effective.engine.name | default('Catalina') }}"
+          default_host: "{{ tomcat_effective.engine.defaultHost | default('localhost') }}"
+          hosts: "{{ tomcat_effective.hosts | default([]) }}"
+          health_url: >-
+            {{
+              tomcat_effective.health_url
+              | default('http://127.0.0.1:' ~ (((tomcat_effective.base_port | int) + ((instance_id | int) - 1) * (tomcat_effective.port_step | int)) | string) ~ '/')
+            }}
+
+    - name: Discover existing instance directories
+      find:
+        paths: "{{ tomcat_effective.catalina_base_root }}"
+        file_type: directory
+        patterns: "{{ tomcat_effective.instance_name_prefix }}*"
+        recurse: false
+      register: discovered_tomcat_dirs
+
+    - name: Build desired instance names
+      set_fact:
+        desired_tomcat_instance_names: >-
+          {{
+            tomcat_instance_ids
+            | map('string')
+            | map('regex_replace', '^(.*)$', tomcat_effective.instance_name_prefix ~ '\\1')
+            | list
+          }}
+
+    - name: Build extra instance names
+      set_fact:
+        extra_tomcat_instance_dirs: >-
+          {{
+            discovered_tomcat_dirs.files
+            | map(attribute='path')
+            | reject('in',
+                desired_tomcat_instance_names
+                | map('regex_replace', '^(.*)$', tomcat_effective.catalina_base_root ~ '/\\1')
+                | list
+              )
+            | list
+          }}
+
+    - name: Remove extra Tomcat instances when destroy is enabled
+      include_tasks: tasks/destroy_instance.yml
+      loop: "{{ extra_tomcat_instance_dirs }}"
+      loop_control:
+        loop_var: instance_path
+      when:
+        - tomcat_effective.destroy_enabled | default(false) | bool
+        - extra_tomcat_instance_dirs | length > 0
+      vars:
+        tomcat_instance:
+          path: "{{ instance_path }}"
+          name: "{{ instance_path | basename }}"
+          catalina_home: "{{ tomcat_effective.catalina_home }}"

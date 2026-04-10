@@ -1,0 +1,5 @@
+{
+  "case": "tomcat benchmark baseline exists",
+  "expected_min_files": 4,
+  "expected_types": [".json", ".md"]
+}

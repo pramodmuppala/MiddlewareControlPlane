@@ -1,0 +1,9 @@
+{
+  "case": "tomcat stopped but instance directory exists",
+  "platform": "tomcat",
+  "expected_current_count": 1,
+  "expected_healthy_count": 0,
+  "expected_action": "hold",
+  "expected_target": 1,
+  "expected_error_contains": "Connection refused"
+}

@@ -5,17 +5,17 @@
 # ==============================
 
 # Set CATALINA_HOME (Tomcat installation directory)
-export CATALINA_HOME={{ tomcat.catalina_home }}
+export CATALINA_HOME={{ tomcat_render.catalina_home }}
 
 # Set CATALINA_BASE (Instance-specific directory)
 # If you are running a single instance, this can be the same as CATALINA_HOME
-export CATALINA_BASE={{ tomcat.catalina_base }}
+export CATALINA_BASE={{ tomcat_render.catalina_base }}
 
 # Optional: Set Java Home (recommended)
-export JAVA_HOME={{ tomcat.java_home }}
+export JAVA_HOME={{ tomcat_render.java_home }}
 
 # Optional: JVM Options
-export CATALINA_OPTS="$CATALINA_OPTS {{ tomcat.catalina_opts | default('-Xms512m -Xmx1024m -XX:+UseG1GC') }}"
+export CATALINA_OPTS="$CATALINA_OPTS {{ tomcat_render.catalina_opts | default('-Xms512m -Xmx1024m -XX:+UseG1GC') }}"
 
 # Optional: JPDA Debugging (uncomment if needed)
 # export JPDA_OPTS="-agentlib:jdwp=transport=dt_socket,address=*:8000,server=y,suspend=n"

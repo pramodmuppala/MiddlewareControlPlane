@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import time
 from dataclasses import dataclass
 from typing import Any, Dict, Literal, Optional
 
@@ -48,9 +47,7 @@ Rules:
 - Recommend scale_up when load is sustained and capacity is likely insufficient.
 - Recommend scale_down only when load is clearly low and stable.
 - Never recommend a target_count below min_instances or above max_instances.
-- Respond ONLY with a valid JSON object with no markdown, no backticks, no explanation.
-- JSON must have exactly these keys: action, target_count, reason, confidence
-- confidence must be a float between 0.0 and 1.0 (e.g. 0.85), never a word like "high"
+- Return only the structured result.
 """
 
 
@@ -67,55 +64,33 @@ def get_llm_recommendation(
     model: Optional[str] = None,
     client: Optional[OpenAI] = None,
 ) -> Dict[str, Any]:
-    chosen_model = model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    chosen_model = model or os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
     if client is None:
         if OpenAI is None:
             raise RuntimeError("openai package is not installed; install requirements.txt to use llm mode")
-        api_client = OpenAI(
-            api_key=os.getenv("GEMINI_API_KEY"),
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-        )
+        api_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     else:
         api_client = client
 
-    # Retry up to 4 times with exponential backoff (handles 503/429)
-    last_exc: Exception = RuntimeError("No attempts made")
-    response = None
-    for attempt in range(4):
-        try:
-            response = api_client.chat.completions.create(
-                model=chosen_model,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": _make_user_prompt(snapshot)},
-                ],
-                temperature=0.2,
-            )
-            break
-        except Exception as exc:
-            last_exc = exc
-            wait = 2 ** attempt  # 1s, 2s, 4s, 8s
-            print(f"[llm_policy] Attempt {attempt + 1} failed ({exc}), retrying in {wait}s...")
-            time.sleep(wait)
+    response = api_client.responses.parse(
+        model=chosen_model,
+        input=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": _make_user_prompt(snapshot)},
+        ],
+        text_format=StructuredScaleDecision,
+    )
 
-    if response is None:
-        raise RuntimeError("LLM call failed after 4 attempts") from last_exc
-
-    raw_text = response.choices[0].message.content or ""
-    clean = raw_text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-
-    try:
-        parsed_dict = json.loads(clean)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"LLM returned non-JSON output: {raw_text!r}") from exc
-
-    # Coerce confidence if model returns a word instead of a float
-    _confidence_map = {"low": 0.25, "medium": 0.5, "med": 0.5, "high": 0.85, "very high": 0.95}
-    raw_conf = parsed_dict.get("confidence")
-    if isinstance(raw_conf, str):
-        parsed_dict["confidence"] = _confidence_map.get(raw_conf.lower().strip(), 0.5)
-
-    return StructuredScaleDecision(**parsed_dict).model_dump()
+    parsed = response.output_parsed
+    if parsed is None:
+        raise RuntimeError("LLM returned no parsed structured output")
+    if isinstance(parsed, StructuredScaleDecision):
+        return parsed.model_dump()
+    if isinstance(parsed, BaseModel):
+        return parsed.model_dump()
+    if isinstance(parsed, dict):
+        return StructuredScaleDecision(**parsed).model_dump()
+    raise RuntimeError(f"Unexpected parsed response type: {type(parsed)!r}")
 
 
 def apply_guardrails(
@@ -213,4 +188,3 @@ def to_scale_decision(guarded_result: Dict[str, Any], *, policy_source: str) -> 
         confidence=float(guarded_result.get("confidence", 0.5)),
         policy_source=policy_source,
     )
-

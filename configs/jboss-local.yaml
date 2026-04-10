@@ -11,7 +11,7 @@ runtime:
   instance_name_prefix: app
   instance_start_index: 1
   base_http_port: 8080
-  port_stride: 100
+  port_stride: 10
   health_path: /
   health_timeout_seconds: 2.0
 scaling:
@@ -32,5 +32,5 @@ state:
   state_file: .state/jboss-state.json
   decision_log_file: .state/jboss-decisions.jsonl
 llm:
-  enabled: false
-  model: gpt-4.1-mini
+  enabled: true
+  model: gemini-2.5-flash

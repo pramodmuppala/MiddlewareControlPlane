@@ -1,0 +1,6 @@
+{
+  "case": "api health endpoint",
+  "expected_response": {
+    "ok": true
+  }
+}

@@ -29,6 +29,7 @@
     JAVA_HOME: "{{ jboss.java_home }}"
     JBOSS_HOME: "{{ jboss.install_home }}/{{ jboss.install_product_version }}"
   register: shutdown_result
+  ignore_errors: true
   changed_when: true
   when:
     - jboss_process_check.rc == 0

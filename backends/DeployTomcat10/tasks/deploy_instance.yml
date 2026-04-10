@@ -1,0 +1,100 @@
+---
+- name: Ensure instance base directories exist for {{ tomcat_instance.name }}
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ tomcat_instance.catalina_base }}"
+    - "{{ tomcat_instance.catalina_base }}/bin"
+    - "{{ tomcat_instance.catalina_base }}/conf"
+    - "{{ tomcat_instance.catalina_base }}/logs"
+    - "{{ tomcat_instance.catalina_base }}/temp"
+    - "{{ tomcat_instance.catalina_base }}/webapps"
+    - "{{ tomcat_instance.catalina_base }}/work"
+
+- name: Seed conf from catalina home when missing for {{ tomcat_instance.name }}
+  shell: >
+    cp -a "{{ tomcat_instance.catalina_home }}/conf/." "{{ tomcat_instance.catalina_base }}/conf/"
+  args:
+    creates: "{{ tomcat_instance.catalina_base }}/conf/server.xml"
+
+- name: Render per-instance setenv.sh for {{ tomcat_instance.name }}
+  template:
+    src: roles/create_setenv_script/templates/setenv.sh.j2
+    dest: "{{ staging_dir }}/setenv-{{ tomcat_instance.name }}.sh"
+    mode: "0755"
+  vars:
+    tomcat_render:
+      catalina_home: "{{ tomcat_instance.catalina_home }}"
+      catalina_base: "{{ tomcat_instance.catalina_base }}"
+      java_home: "{{ tomcat_instance.java_home }}"
+      catalina_opts: "{{ tomcat_instance.catalina_opts }}"
+      file_encoding: "{{ tomcat_instance.file_encoding }}"
+
+- name: Render per-instance server.xml for {{ tomcat_instance.name }}
+  template:
+    src: roles/create_server_xml/templates/server.xml.j2
+    dest: "{{ staging_dir }}/server-{{ tomcat_instance.name }}.xml"
+    mode: "0644"
+  vars:
+    tomcat_render:
+      server:
+        shutdown_port: "{{ tomcat_instance.shutdown_port }}"
+        shutdown_command: "{{ tomcat_instance.shutdown_command }}"
+      service:
+        name: "{{ tomcat_instance.service_name }}"
+      connectors:
+        - port: "{{ tomcat_instance.http_port }}"
+          protocol: "HTTP/1.1"
+          connectionTimeout: 20000
+          redirectPort: "{{ tomcat_instance.redirect_port }}"
+      engine:
+        name: "{{ tomcat_instance.engine_name }}"
+        defaultHost: "{{ tomcat_instance.default_host }}"
+      hosts: "{{ tomcat_instance.hosts }}"
+
+
+- name: Validate rendered setenv.sh for {{ tomcat_instance.name }}
+  command: "bash -n {{ staging_dir }}/setenv-{{ tomcat_instance.name }}.sh"
+  register: validate_setenv_script
+  failed_when: validate_setenv_script.rc != 0
+  changed_when: false
+
+- name: Copy setenv.sh into instance bin for {{ tomcat_instance.name }}
+  copy:
+    src: "{{ staging_dir }}/setenv-{{ tomcat_instance.name }}.sh"
+    dest: "{{ tomcat_instance.catalina_base }}/bin/setenv.sh"
+    remote_src: yes
+    mode: "0755"
+
+- name: Validate rendered server.xml with xmllint for {{ tomcat_instance.name }}
+  command: "xmllint --noout {{ staging_dir }}/server-{{ tomcat_instance.name }}.xml"
+  register: xmllint_result
+  failed_when: xmllint_result.rc != 0
+  changed_when: false
+
+- name: Deploy server.xml into instance conf for {{ tomcat_instance.name }}
+  copy:
+    src: "{{ staging_dir }}/server-{{ tomcat_instance.name }}.xml"
+    dest: "{{ tomcat_instance.catalina_base }}/conf/server.xml"
+    remote_src: yes
+    mode: "0644"
+
+- name: Shutdown Tomcat instance {{ tomcat_instance.name }} if running
+  shell: "{{ tomcat_instance.catalina_home }}/bin/shutdown.sh"
+  environment:
+    CATALINA_HOME: "{{ tomcat_instance.catalina_home }}"
+    CATALINA_BASE: "{{ tomcat_instance.catalina_base }}"
+  become: false
+  register: shutdown_result
+  ignore_errors: true
+
+- name: Startup Tomcat instance {{ tomcat_instance.name }}
+  shell: "{{ tomcat_instance.catalina_home }}/bin/startup.sh"
+  environment:
+    CATALINA_HOME: "{{ tomcat_instance.catalina_home }}"
+    CATALINA_BASE: "{{ tomcat_instance.catalina_base }}"
+  become: false
+  register: startup_result
+  failed_when: startup_result.rc != 0

@@ -1,0 +1,91 @@
+---
+- name: Ensure instance dirs for {{ jboss_instance.name }}
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ jboss_instance.home }}"
+    - "{{ jboss_instance.home }}/bin"
+    - "{{ jboss_instance.home }}/configuration"
+    - "{{ jboss_instance.home }}/data"
+    - "{{ jboss_instance.home }}/deployments"
+    - "{{ jboss_instance.home }}/log"
+    - "{{ jboss_instance.home }}/tmp"
+
+- name: Seed standalone.xml from product default for {{ jboss_instance.name }}
+  copy:
+    src: "{{ jboss_instance.install_home }}/{{ jboss_instance.install_product_version }}/standalone/configuration/{{ jboss_instance.standalone_config_file }}"
+    dest: "{{ jboss_instance.home }}/configuration/{{ jboss_instance.standalone_config_file }}"
+    remote_src: yes
+    force: no
+
+- name: Ensure management/auth property files exist for {{ jboss_instance.name }}
+  file:
+    path: "{{ jboss_instance.home }}/configuration/{{ item }}"
+    state: touch
+    mode: "0644"
+  loop:
+    - mgmt-users.properties
+    - mgmt-groups.properties
+    - application-users.properties
+    - application-roles.properties
+
+- name: Render instance runtime environment file for {{ jboss_instance.name }}
+  copy:
+    dest: "{{ jboss_instance.home }}/bin/jboss-instance.env"
+    mode: "0644"
+    content: |
+      JAVA_HOME={{ jboss_instance.java_home }}
+      JBOSS_HOME={{ jboss_instance.install_home }}/{{ jboss_instance.install_product_version }}
+      JBOSS_BASE_DIR={{ jboss_instance.home }}
+      JBOSS_BIND_ADDRESS={{ jboss_instance.bind_address }}
+      JBOSS_BIND_ADDRESS_MANAGEMENT={{ jboss_instance.management_bind_address }}
+      JBOSS_HTTP_PORT={{ jboss_instance.http_port }}
+      JBOSS_HTTPS_PORT={{ jboss_instance.https_port }}
+      JBOSS_MANAGEMENT_PORT={{ jboss_instance.management_port }}
+      JBOSS_PORT_OFFSET={{ jboss_instance.port_offset }}
+      JBOSS_JAVA_OPTS="-Xms{{ jboss_instance.heap_min }} -Xmx{{ jboss_instance.heap_max }} -XX:MaxMetaspaceSize={{ jboss_instance.metaspace_max }} {{ jboss_instance.java_opts_extra }}"
+
+- name: Render standalone.xml for {{ jboss_instance.name }}
+  copy:
+    src: "{{ jboss_instance.install_home }}/{{ jboss_instance.install_product_version }}/standalone/configuration/{{ jboss_instance.standalone_config_file }}"
+    dest: "{{ jboss_instance.home }}/configuration/{{ jboss_instance.standalone_config_file }}"
+    remote_src: yes
+    mode: "0644"
+
+- name: Stop JBoss instance {{ jboss_instance.name }} if already running
+  become: false
+  shell: >
+    pgrep -f "jboss.server.base.dir={{ jboss_instance.home }}" |
+    xargs -r kill -15
+  args:
+    executable: /bin/bash
+  ignore_errors: true
+  failed_when: false
+  changed_when: false
+
+- name: Start JBoss instance {{ jboss_instance.name }}
+  become: false
+  shell: >
+    nohup "{{ jboss_instance.install_home }}/{{ jboss_instance.install_product_version }}/bin/standalone.sh"
+    -Djboss.server.base.dir="{{ jboss_instance.home }}"
+    -Djboss.bind.address="{{ jboss_instance.bind_address }}"
+    -Djboss.bind.address.management="{{ jboss_instance.management_bind_address }}"
+    -Djboss.socket.binding.port-offset="{{ jboss_instance.port_offset }}"
+    -c "{{ jboss_instance.standalone_config_file }}"
+    > "{{ jboss_instance.startup_log }}" 2>&1 &
+  args:
+    executable: /bin/bash
+
+- name: Wait for management port on {{ jboss_instance.name }}
+  wait_for:
+    host: "{{ jboss_instance.management_host }}"
+    port: "{{ jboss_instance.management_port }}"
+    timeout: 120
+
+- name: Wait for HTTP port on {{ jboss_instance.name }}
+  wait_for:
+    host: "127.0.0.1"
+    port: "{{ jboss_instance.http_port }}"
+    timeout: 120

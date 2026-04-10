@@ -1,0 +1,8 @@
+{
+  "case": "tomcat manual scale request to 2",
+  "platform": "tomcat",
+  "expected_action": "scale_up",
+  "expected_target": 2,
+  "expected_policy_source": "api_manual",
+  "expected_dry_run": true
+}

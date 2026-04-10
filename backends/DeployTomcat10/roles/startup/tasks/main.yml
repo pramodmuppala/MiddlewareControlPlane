@@ -1,5 +1,7 @@
 ---
 - name: startup tomcat instance
+  become: true
+  become_user: parallels
   shell: "{{ tomcat.catalina_home }}/bin/startup.sh"
   environment:
     CATALINA_HOME: "{{ tomcat.catalina_home }}"

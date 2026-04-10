@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="{{ tomcat.file_encoding | default('UTF-8') }}"?>
+<?xml version="1.0" encoding="{{ tomcat_render.file_encoding | default('UTF-8') }}"?>
 
-<Server port="{{ tomcat.server.shutdown_port }}"
-        shutdown="{{ tomcat.server.shutdown_command }}">
+<Server port="{{ tomcat_render.server.shutdown_port }}"
+        shutdown="{{ tomcat_render.server.shutdown_command }}">
 
   <!-- Listeners -->
   <Listener className="org.apache.catalina.startup.VersionLoggerListener"/>
@@ -10,10 +10,10 @@
   <Listener className="org.apache.catalina.mbeans.GlobalResourcesLifecycleListener"/>
   <Listener className="org.apache.catalina.core.ThreadLocalLeakPreventionListener"/>
 
-  <Service name="{{ tomcat.service.name }}">
+  <Service name="{{ tomcat_render.service.name }}">
 
     {# -------------------- CONNECTORS -------------------- #}
-    {% for connector in tomcat.connectors %}
+    {% for connector in tomcat_render.connectors %}
     <Connector
         port="{{ connector.port }}"
         protocol="{{ connector.protocol }}"
@@ -21,8 +21,8 @@
         redirectPort="{{ connector.redirectPort }}" />
     {% endfor %}
 
-    <Engine name="{{ tomcat.engine.name }}"
-            defaultHost="{{ tomcat.engine.defaultHost }}">
+    <Engine name="{{ tomcat_render.engine.name }}"
+            defaultHost="{{ tomcat_render.engine.defaultHost }}">
 
       <!-- Realm -->
       <Realm className="org.apache.catalina.realm.LockOutRealm">
@@ -31,7 +31,7 @@
       </Realm>
 
       {# -------------------- HOSTS -------------------- #}
-      {% for host in tomcat.hosts %}
+      {% for host in tomcat_render.hosts %}
       <Host name="{{ host.name }}"
             appBase="{{ host.appBase }}"
             unpackWARs="{{ host.unpackWARs | lower }}"

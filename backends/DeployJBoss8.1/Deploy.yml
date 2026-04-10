@@ -1,21 +1,169 @@
 ---
-- name: Deploy JBoss EAP
+- name: Deploy JBoss EAP instances
   hosts: JBoss
-  connection: local
   become: yes
-  become_user: parallels
+  gather_facts: true
 
   vars_files:
     - vars/main.yml
 
-  roles:
-    - install_jboss
-    - create_instance
-    - create_instance_env
-    - stage_standalone_xml
-    - offline_configure_standalone
-    - validate_standalone_xml
-    - copy_config_files
-    - shutdown
-    - startup
-    - healthcheck
+  pre_tasks:
+    - name: Build effective JBoss config
+      set_fact:
+        jboss_effective: "{{ jboss_defaults | default({}) | combine(jboss | default({}), recursive=True) }}"
+
+    - name: Build effective JBoss config
+      assert:
+        that:
+          - jboss_defaults is defined
+        fail_msg: "JBoss defaults is not defined"
+
+    - name: Ensure required JBoss keys exist
+      assert:
+        that:
+          - jboss_effective.install_home is defined
+          - jboss_effective.install_product_version is defined
+          - jboss_effective.instance_home_root is defined
+          - jboss_effective.instance_name_prefix is defined
+          - jboss_effective.instance_count is defined
+          - jboss_effective.base_http_port is defined
+          - jboss_effective.base_mgmt_port is defined
+          - jboss_effective.port_step is defined
+          - jboss_effective.java_home is defined
+        fail_msg: "JBoss config is missing one or more required keys."
+
+    - name: Build JBoss instance list
+      set_fact:
+        jboss_instance_ids: "{{ range(1, (jboss_effective.instance_count | int) + 1) | list }}"
+
+    - name: Ensure staging directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ staging_dir }}"
+        - "{{ staging_dir }}/backup"
+
+    - name: Show effective JBoss config
+      debug:
+        msg:
+          - "instance_count={{ jboss_effective.instance_count }}"
+          - "install_home={{ jboss_effective.install_home }}"
+          - "install_product_version={{ jboss_effective.install_product_version }}"
+          - "instance_home_root={{ jboss_effective.instance_home_root }}"
+          - "instance_name_prefix={{ jboss_effective.instance_name_prefix }}"
+          - "base_http_port={{ jboss_effective.base_http_port }}"
+          - "base_mgmt_port={{ jboss_effective.base_mgmt_port }}"
+          - "port_step={{ jboss_effective.port_step }}"
+          - "java_home={{ jboss_effective.java_home }}"
+
+  tasks:
+    - name: Deploy each JBoss instance
+      include_tasks: tasks/deploy_instance.yml
+      loop: "{{ jboss_instance_ids }}"
+      loop_control:
+        loop_var: instance_id
+        label: "{{ jboss_effective.instance_name_prefix }}{{ instance_id }}"
+      vars:
+        jboss_instance:
+          id: "{{ instance_id }}"
+          name: "{{ jboss_effective.instance_name_prefix }}{{ instance_id }}"
+          home: "{{ jboss_effective.instance_home_root }}/{{ jboss_effective.instance_name_prefix }}{{ instance_id }}"
+          install_home: "{{ jboss_effective.install_home }}"
+          install_product_version: "{{ jboss_effective.install_product_version }}"
+          java_home: "{{ jboss_effective.java_home }}"
+          bind_address: "{{ jboss_effective.standalone.bind_address | default('0.0.0.0') }}"
+          management_bind_address: "{{ jboss_effective.standalone.management_bind_address | default('127.0.0.1') }}"
+          standalone_config_file: "{{ jboss_effective.standalone.config_file | default('standalone.xml') }}"
+          validation_config_file: "{{ jboss_effective.standalone.validation_config_file | default('standalone-ansible-validate.xml') }}"
+          heap_min: "{{ jboss_effective.java_opts.heap_min | default('1024m') }}"
+          heap_max: "{{ jboss_effective.java_opts.heap_max | default('2048m') }}"
+          metaspace_max: "{{ jboss_effective.java_opts.metaspace_max | default('512m') }}"
+          java_opts_extra: "{{ jboss_effective.java_opts.extra | default('-Dfile.encoding=UTF-8') }}"
+          management_protocol: "{{ jboss_effective.management.protocol | default('remote+http') }}"
+          management_host: "{{ jboss_effective.management.host | default('127.0.0.1') }}"
+          management_username: "{{ jboss_effective.management.username | default('') }}"
+          management_password: "{{ jboss_effective.management.password | default('') }}"
+          root_log_level: "{{ jboss_effective.logging.root_level | default('INFO') }}"
+          healthcheck_enabled: "{{ jboss_effective.healthcheck.enabled | default(true) }}"
+          http_port: "{{ (jboss_effective.base_http_port | int) + ((instance_id | int) - 1) * (jboss_effective.port_step | int) }}"
+          management_port: "{{ (jboss_effective.base_mgmt_port | int) + ((instance_id | int) - 1) * (jboss_effective.port_step | int) }}"
+          https_port: >-
+            {{
+              ((jboss_effective.base_http_port | int) + 363)
+              + ((instance_id | int) - 1) * (jboss_effective.port_step | int)
+            }}
+          port_offset: "{{ ((instance_id | int) - 1) * (jboss_effective.port_step | int) }}"
+          health_url: >-
+            {{
+              'http://127.0.0.1:' ~
+              (((jboss_effective.base_http_port | int) + ((instance_id | int) - 1) * (jboss_effective.port_step | int)) | string) ~
+              '/'
+            }}
+          instance_env_file: "{{ jboss_effective.instance_home_root }}/{{ jboss_effective.instance_name_prefix }}{{ instance_id }}/bin/jboss-instance.env"
+          startup_log: "{{ jboss_effective.instance_home_root }}/{{ jboss_effective.instance_name_prefix }}{{ instance_id }}/log/startup-ansible.log"
+
+    - name: Discover existing instance directories
+      find:
+        paths: "{{ jboss_effective.instance_home_root }}"
+        file_type: directory
+        patterns: "{{ jboss_effective.instance_name_prefix }}*"
+        recurse: false
+      register: discovered_jboss_dirs
+
+    - name: Build desired JBoss instance names
+      set_fact:
+        desired_jboss_instance_names: >-
+          {{
+            jboss_instance_ids
+            | map('string')
+            | map('regex_replace', '^(.*)$', jboss_effective.instance_name_prefix ~ '\\1')
+            | list
+          }}
+
+    - name: Build extra JBoss instance dirs
+      set_fact:
+        extra_jboss_instance_dirs: >-
+          {{
+            discovered_jboss_dirs.files
+            | map(attribute='path')
+            | reject(
+                'in',
+                desired_jboss_instance_names
+                | map('regex_replace', '^(.*)$', jboss_effective.instance_home_root ~ '/\\1')
+                | list
+              )
+            | list
+          }}
+
+    - name: Remove extra JBoss instances when destroy is enabled
+      include_tasks: tasks/destroy_instance.yml
+      loop: "{{ extra_jboss_instance_dirs }}"
+      loop_control:
+        loop_var: instance_path
+      when:
+        - jboss_effective.destroy_enabled | default(false) | bool
+        - extra_jboss_instance_dirs | length > 0
+      vars:
+        jboss_instance:
+          path: "{{ instance_path }}"
+          name: "{{ instance_path | basename }}"
+          install_home: "{{ jboss_effective.install_home }}"
+          install_product_version: "{{ jboss_effective.install_product_version }}"
+          management_host: "{{ jboss_effective.management.host | default('127.0.0.1') }}"
+          management_protocol: "{{ jboss_effective.management.protocol | default('remote+http') }}"
+          management_username: "{{ jboss_effective.management.username | default('') }}"
+          management_password: "{{ jboss_effective.management.password | default('') }}"
+          management_port: >-
+            {{
+              (
+                jboss_effective.base_mgmt_port | int
+              ) + (
+                (
+                  (instance_path | basename)
+                  | regex_replace('^' ~ jboss_effective.instance_name_prefix, '')
+                  | int
+                ) - 1
+              ) * (jboss_effective.port_step | int)
+            }}

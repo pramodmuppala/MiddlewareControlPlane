@@ -1,0 +1,6 @@
+{
+  "case": "tomcat healthy steady state",
+  "platform": "tomcat",
+  "expected_target": 1,
+  "expected_behavior": "hold_or_no_scale"
+}

@@ -1,0 +1,9 @@
+{
+  "case": "tomcat zero discovered instances",
+  "platform": "tomcat",
+  "expected_current_count": 0,
+  "expected_healthy_count": 0,
+  "expected_action": "scale_up",
+  "expected_target": 1,
+  "expected_policy_source": "rules"
+}

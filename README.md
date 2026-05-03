@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # MiddlewareControlPlane
 Middleware Control Plane
 =======

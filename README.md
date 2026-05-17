@@ -1,7 +1,3 @@
-
-# MiddlewareControlPlane
-Middleware Control Plane
-=======
 # Middleware Control Plane
 
 A shared Python control plane for **JBoss EAP** and **Tomcat** that keeps platform-specific Ansible execution where it belongs while centralizing discovery, health checks, scaling policy, API exposure, and evidence generation.
